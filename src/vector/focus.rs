@@ -190,6 +190,28 @@ where
         }
     }
 
+    /// Upgrades the focus back into a Vector. Creation runs O(logn).
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// # #[macro_use] extern crate im;
+    /// # use im::vector::Vector;
+    /// # use std::iter::FromIterator;
+    /// # fn main() {
+    /// let vec = Vector::from_iter(0..1000);
+    /// let narrowed = vec.focus().narrow(100..200);
+    /// let narrowed_vec = narrowed.upgrade();
+    /// assert_eq!(Vector::from_iter(100..200), narrowed_vec);
+    /// # }
+    /// ```
+    pub fn upgrade(self) -> Vector<A> {
+        match self {
+            Focus::Single(chunk) => Vector::from(chunk),
+            Focus::Full(tree) => tree.upgrade(),
+        }
+    }
+
     /// Split the focus into two.
     ///
     /// Given an index `index`, consume the focus and produce two new foci, the
@@ -324,6 +346,10 @@ where
             target_ptr: null(),
             tree: self.tree,
         }
+    }
+
+    fn upgrade(self) -> Vector<A> {
+        Vector::Full(self.tree).slice(self.view)
     }
 
     fn split_at(self, index: usize) -> (Self, Self) {
