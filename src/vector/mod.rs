@@ -178,6 +178,14 @@ impl<A> Clone for RRB<A> {
 }
 
 impl<A: Clone> Vector<A> {
+    pub(crate) fn height(&self) -> usize {
+        match &self.vector {
+            Inline(_, _) => 0,
+            Single(_, _) => 0,
+            Full(_, child) => child.middle_level,
+        }
+    }
+
     /// Get a reference to the memory pool this `Vector` is using.
     ///
     /// Note that if you didn't specifically construct it with a pool, you'll
