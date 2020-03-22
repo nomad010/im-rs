@@ -186,6 +186,17 @@ impl<A: Clone> Vector<A> {
         }
     }
 
+    pub fn sizes(&self) -> Option<crate::nodes::rrb::Size> {
+        if let Full(_, n) = &self.vector {
+            match &n.middle.children {
+                crate::nodes::rrb::Entry::Nodes(s, _) => Some(s.clone()),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
     /// Get a reference to the memory pool this `Vector` is using.
     ///
     /// Note that if you didn't specifically construct it with a pool, you'll
@@ -1375,8 +1386,11 @@ impl<A: Clone> Vector<A> {
             // TODO a lot of optimisations still possible here
             _ => {
                 let right = self.split_off(index);
+                // println!("derp split off: {:?}", right.len());
                 self.push_back(value);
+                // println!("derp self: {:?}", self.len());
                 self.append(right);
+                // println!("derp append: {:?}", self.len());
             }
         }
     }

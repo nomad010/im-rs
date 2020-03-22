@@ -17,7 +17,7 @@ use self::Entry::*;
 pub(crate) const NODE_SIZE: usize = CHUNK_SIZE;
 
 #[derive(Debug)]
-enum Size {
+pub enum Size {
     Size(usize),
     Table(PoolRef<Chunk<usize>>),
 }
@@ -35,7 +35,7 @@ impl Size {
     fn size(&self) -> usize {
         match self {
             Size::Size(s) => *s,
-            Size::Table(sizes) => sizes.iter().sum(),
+            Size::Table(sizes) => *sizes.last().unwrap(),
         }
     }
 
@@ -49,11 +49,14 @@ impl Size {
     fn table_from_size(pool: &Pool<Chunk<usize>>, level: usize, size: usize) -> Self {
         let mut chunk = Chunk::new();
         let mut remaining = size;
-        let child_size = NODE_SIZE.pow(level as u32);
-        while remaining > child_size {
-            let next_value = chunk.last().unwrap_or(&0) + child_size;
-            chunk.push_back(next_value);
-            remaining -= child_size;
+
+        if level < 10 {
+            let child_size = NODE_SIZE.pow(level as u32);
+            while remaining > child_size {
+                let next_value = chunk.last().unwrap_or(&0) + child_size;
+                chunk.push_back(next_value);
+                remaining -= child_size;
+            }
         }
         if remaining > 0 {
             let next_value = chunk.last().unwrap_or(&0) + remaining;
@@ -158,7 +161,7 @@ pub(crate) enum SplitResult {
 }
 
 // Invariants: Nodes only at level > 0, Values/Empty only at level = 0
-enum Entry<A> {
+pub enum Entry<A> {
     Nodes(Size, PoolRef<Chunk<Node<A>>>),
     Values(PoolRef<Chunk<A>>),
     Empty,
@@ -243,8 +246,8 @@ impl<A: Clone> Entry<A> {
 
 // Node
 
-pub(crate) struct Node<A> {
-    children: Entry<A>,
+pub struct Node<A> {
+    pub children: Entry<A>,
 }
 
 impl<A: Clone> Clone for Node<A> {
@@ -395,7 +398,11 @@ impl<A: Clone> Node<A> {
     fn is_completely_dense(&self, level: usize) -> bool {
         // Size of a full node is NODE_SIZE at level 0, NODE_SIZE² at
         // level 1, etc.
-        self.size() == NODE_SIZE.pow(level as u32 + 1)
+        if level >= 10 {
+            false
+        } else {
+            self.size() == NODE_SIZE.pow(level as u32 + 1)
+        }
     }
 
     #[inline]
@@ -444,7 +451,11 @@ impl<A: Clone> Node<A> {
     }
 
     fn index_in(&self, level: usize, index: usize) -> Option<usize> {
-        let mut target_idx = index / NODE_SIZE.pow(level as u32);
+        let mut target_idx = if level < 10 {
+            index / NODE_SIZE.pow(level as u32)
+        } else {
+            0
+        };
         if target_idx >= self.children.len() {
             return None;
         }
@@ -758,6 +769,13 @@ impl<A: Clone> Node<A> {
         drop_side: Side,
         index: usize,
     ) -> SplitResult {
+        // println!(
+        //     "Splitting {} {:?} {} {}",
+        //     level,
+        //     drop_side,
+        //     index,
+        //     self.size()
+        // );
         if index == 0 && drop_side == Side::Left {
             // Dropped nothing
             return SplitResult::Dropped(0);
@@ -770,6 +788,7 @@ impl<A: Clone> Node<A> {
                 panic!("leaf node at non-leaf level!");
             };
             self.children = Entry::Empty;
+            // println!("Dropped everything here {} at level {}", dropped, level);
             return SplitResult::Dropped(dropped);
         }
         let mut dropped;
@@ -801,6 +820,13 @@ impl<A: Clone> Node<A> {
                     SplitResult::OutOfBounds => return SplitResult::OutOfBounds,
                     SplitResult::Dropped(amount) => dropped = amount,
                 }
+                // println!(
+                //     "Rawr lol {} {} {} {}",
+                //     target_idx,
+                //     dropped,
+                //     level,
+                //     child_node.len()
+                // );
                 child_node.len()
             };
             match drop_side {
@@ -840,12 +866,17 @@ impl<A: Clone> Node<A> {
                     }
                     match size {
                         Size::Size(ref mut size) if at_last => {
+                            // println!("modifying size single last {}", size);
                             *size -= dropped;
                         }
                         Size::Size(ref mut size) => {
+                            // println!("modifying size single else {}", size);
                             let size_per_child = NODE_SIZE.pow(level as u32);
+                            // println!("spc {}", size_per_child);
                             let remainder = (target_idx + 1) * size_per_child;
+                            // println!("rem {}", remainder);
                             let new_size = remainder - dropped;
+                            // println!("ns {}", new_size);
                             if new_size < *size {
                                 dropped = *size - new_size;
                                 *size = new_size;
@@ -856,6 +887,7 @@ impl<A: Clone> Node<A> {
                             }
                         }
                         Size::Table(ref mut size_ref) => {
+                            // println!("modifying size table {} {}", level, size_ref.len());
                             let size_table = PoolRef::make_mut(&pool.size_pool, size_ref);
                             let dropped_size =
                                 size_table[size_table.len() - 1] - size_table[target_idx];
@@ -863,6 +895,10 @@ impl<A: Clone> Node<A> {
                                 size_table.drop_right(drop_from);
                             }
                             if !child_gone {
+                                // println!(
+                                //     "Dropping {} {} {} {} {}",
+                                //     level, target_idx, size_table[target_idx], dropped, drop_from
+                                // );
                                 size_table[target_idx] -= dropped;
                             }
                             dropped += dropped_size;
@@ -870,6 +906,7 @@ impl<A: Clone> Node<A> {
                     }
                 }
             }
+            // println!("Returning {} from {}", dropped, level);
             SplitResult::Dropped(dropped)
         } else {
             SplitResult::OutOfBounds

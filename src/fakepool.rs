@@ -11,13 +11,13 @@ use std::sync::Arc as RArc;
 
 use crate::nodes::chunk::Chunk;
 
-pub(crate) trait PoolDefault: Default {}
-pub(crate) trait PoolClone: Clone {}
+pub trait PoolDefault: Default {}
+pub trait PoolClone: Clone {}
 
 impl<A> PoolDefault for Chunk<A> {}
 impl<A> PoolClone for Chunk<A> where A: Clone {}
 
-pub(crate) struct Pool<A>(PhantomData<A>);
+pub struct Pool<A>(PhantomData<A>);
 
 impl<A> Pool<A> {
     pub(crate) fn new(_size: usize) -> Self {
@@ -40,7 +40,7 @@ impl<A> Clone for Pool<A> {
 // Rc
 
 #[derive(Default)]
-pub(crate) struct Rc<A>(RRc<A>);
+pub struct Rc<A>(RRc<A>);
 
 impl<A> Rc<A> {
     #[inline(always)]
@@ -125,7 +125,7 @@ where
 // Arc
 
 #[derive(Default)]
-pub(crate) struct Arc<A>(RArc<A>);
+pub struct Arc<A>(RArc<A>);
 
 impl<A> Arc<A> {
     #[inline(always)]

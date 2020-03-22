@@ -220,7 +220,7 @@ proptest! {
 
 #[test]
 fn test_inserts() {
-    const N: usize = 2000000;
+    const N: usize = 200_000;
     let mut v = Vector::new();
     for i in 0..N {
         v.insert(v.len() / 2, i);

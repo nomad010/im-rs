@@ -19,23 +19,23 @@ pub(crate) use crate::fakepool::{Arc as PoolRef, Pool, PoolClone, PoolDefault};
 
 // `Ref` == `Arc` when threadsafe
 #[cfg(threadsafe)]
-pub(crate) type Ref<A> = std::sync::Arc<A>;
+pub type Ref<A> = std::sync::Arc<A>;
 
 // `Rc` without refpool
 #[cfg(all(not(threadsafe), not(feature = "pool")))]
-pub(crate) use crate::fakepool::{Pool, PoolClone, PoolDefault, Rc as PoolRef};
+pub use crate::fakepool::{Pool, PoolClone, PoolDefault, Rc as PoolRef};
 
 // `Rc` with refpool
 #[cfg(all(not(threadsafe), feature = "pool"))]
-pub(crate) type PoolRef<A> = refpool::PoolRef<A>;
+pub type PoolRef<A> = refpool::PoolRef<A>;
 #[cfg(all(not(threadsafe), feature = "pool"))]
-pub(crate) type Pool<A> = refpool::Pool<A>;
+pub type Pool<A> = refpool::Pool<A>;
 
 // `Ref` == `Rc` when not threadsafe
 #[cfg(not(threadsafe))]
-pub(crate) type Ref<A> = std::rc::Rc<A>;
+pub type Ref<A> = std::rc::Rc<A>;
 
-pub(crate) fn clone_ref<A>(r: Ref<A>) -> A
+pub fn clone_ref<A>(r: Ref<A>) -> A
 where
     A: Clone,
 {
